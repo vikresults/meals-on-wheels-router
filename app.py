@@ -34,6 +34,11 @@ st.markdown("""
         padding-top: 2rem;
         padding-bottom: 2rem;
     }
+    
+    /* Set sidebar width */
+    section[data-testid="stSidebar"] {
+        width: 425px !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
