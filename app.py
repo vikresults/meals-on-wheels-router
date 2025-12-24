@@ -5,20 +5,39 @@ from streamlit_folium import st_folium
 from geopy.geocoders import ArcGIS
 import urllib.parse
 
-# 1. Setup
-st.set_page_config(page_title="Meals on Wheels Master", layout="wide")
+# --- MOBILE FRIENDLY UI STYLING ---
+st.set_page_config(page_title="NC Route Master", layout="wide")
 
-# 2. Memory Initialization
-if 'delivery_list' not in st.session_state:
-    st.session_state.delivery_list = []
-if 'completed_stops' not in st.session_state:
-    st.session_state.completed_stops = set()
-if 'start_node' not in st.session_state:
-    st.session_state.start_node = ""
-if 'end_node' not in st.session_state:
-    st.session_state.end_node = ""
+st.markdown("""
+    <style>
+    /* Make buttons big and thumb-friendly */
+    .stButton > button {
+        width: 100%;
+        border-radius: 10px;
+        height: 3em;
+        background-color: #007BFF;
+        color: white;
+        font-weight: bold;
+        border: none;
+        margin-bottom: 10px;
+    }
+    /* Style the checklist items */
+    .stCheckbox {
+        background-color: #f8f9fa;
+        padding: 12px;
+        border-radius: 10px;
+        border: 1px solid #e9ecef;
+        margin-bottom: 8px;
+    }
+    /* Main container padding for mobile */
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-st.title("🚚 Meals on Wheels: Master Router")
+st.title("🚚 NC Elite Router")
 
 # --- SIDEBAR ---
 st.sidebar.header("➕ Add Locations")
@@ -106,3 +125,4 @@ with col_right:
 
     m = folium.Map(location=[35.73, -78.85], zoom_start=11)
     st_folium(m, width=600, height=400)
+
