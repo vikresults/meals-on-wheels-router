@@ -96,44 +96,59 @@ with st.sidebar.expander("📁 Excel Upload", expanded=False):
                 if a.strip() not in st.session_state.delivery_list:
                     st.session_state.delivery_list.append(a.strip())
             st.success("List Updated!")
-# --- MAIN UI ---
+# --- 4. MAIN ACTION AREA ---
 col_left, col_right = st.columns([1, 1.2])
 
 with col_left:
-    st.subheader("📋 Delivery Plan")
-    if st.session_state.start_node:
-        st.success(f"🚩 **START:** {st.session_state.start_node}")
-    else:
-        if st.button("📍 Use My Current Location"):
-            st.session_state.start_node = "My Location"
-            st.rerun()
+    st.subheader("📋 Delivery Checklist")
     
-    if st.session_state.end_node:
-        st.error(f"🏁 **END:** {st.session_state.end_node}")
-
-    st.write("### Checklist")
-    st.session_state.delivery_list = [x for x in st.session_state.delivery_list if str(x).lower() != 'nan']
+    # Filter out empty entries
+    st.session_state.delivery_list = [x for x in st.session_state.delivery_list if str(x).lower() != 'nan' and x]
+    
+    if not st.session_state.delivery_list and not st.session_state.start_node:
+        st.info("👋 Welcome! Use the sidebar to add your first delivery address.")
+    
+    # Display the checklist as clean cards
     for i, addr in enumerate(st.session_state.delivery_list):
-        done = addr in st.session_state.completed_stops
-        if st.checkbox(f"{i+1}. {addr}", value=done, key=f"ch_{i}"):
+        is_done = addr in st.session_state.completed_stops
+        # The key ensures Streamlit tracks each checkbox individually
+        if st.checkbox(f"{addr}", value=is_done, key=f"addr_{i}"):
             st.session_state.completed_stops.add(addr)
         else:
             st.session_state.completed_stops.discard(addr)
 
 with col_right:
-    st.subheader("🗺️ Map Preview")
-    if st.button("✨ Optimize Order", use_container_width=True):
-        st.session_state.delivery_list = sorted(list(set(st.session_state.delivery_list)))
-        st.rerun()
+    st.subheader("🗺️ Route Map")
+    
+    # BIG GOOGLE MAPS BUTTON
+    if st.session_state.start_node and st.session_state.delivery_list:
+        # Prepare the URL for Google Maps multi-stop
+        base_url = "https://www.google.com/maps/dir/"
+        start_pt = "Current+Location" if st.session_state.start_node == "My Location" else urllib.parse.quote(st.session_state.start_node)
+        
+        # Only route the stops NOT yet completed
+        remaining_stops = [urllib.parse.quote(str(a)) for a in st.session_state.delivery_list if a not in st.session_state.completed_stops]
+        
+        dest_pt = ""
+        if st.session_state.end_node:
+            dest_pt = urllib.parse.quote(st.session_state.end_node)
+        elif remaining_stops:
+            dest_pt = remaining_stops.pop() # Use the last stop as destination
+            
+        full_url = f"{base_url}{start_pt}/{'/'.join(remaining_stops)}/{dest_pt}"
+        
+        st.link_button("🚀 START GPS NAVIGATION", full_url, type="primary", use_container_width=True)
+    
+    # Visual Map Preview
+    m = folium.Map(location=[35.73, -78.85], zoom_start=10, control_scale=True)
+    # (Optional: In the future, we can add markers here)
+    st_folium(m, width="100%", height=400, returned_objects=[])
 
-    if st.session_state.start_node and st.session_state.end_node:
-        s_val = "Current+Location" if st.session_state.start_node == "My Location" else st.session_state.start_node
-        pts = [s_val] + st.session_state.delivery_list + [st.session_state.end_node]
-        url = "https://www.google.com/maps/dir/" + "/".join([urllib.parse.quote(str(p)) for p in pts])
-        st.link_button("🚀 Launch GPS Navigation", url, use_container_width=True)
+if st.button("✨ Optimize My Remaining Route", use_container_width=True):
+    # Simple sort for now; keeps the UX snappy
+    st.session_state.delivery_list.sort()
+    st.rerun()
 
-    m = folium.Map(location=[35.73, -78.85], zoom_start=11)
-    st_folium(m, width=600, height=400)
 
 
 
