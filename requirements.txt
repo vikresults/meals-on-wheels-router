@@ -1,12 +1,6 @@
-# Meals on Wheels: NC Elite Router
-
-## The Problem
-Volunteer drivers often struggle to organize multiple delivery stops efficiently. Manually entering addresses into GPS is time-consuming and doesn't provide a clear checklist of completed deliveries.
-
-## The Solution
-This application allows drivers to:
-- **Upload Excel** delivery lists instantly.
-- **Search & Add** addresses via the ArcGIS Map server.
-- **Manual Entry** for quick updates.
-- **Optimize** the route to save time and gas.
-- **Launch GPS** navigation for the entire route in one click.
+streamlit
+pandas
+folium
+streamlit-folium
+geopy
+openpyxl
