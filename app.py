@@ -61,54 +61,41 @@ col_c.metric("Remaining", stops_remaining)
 
 st.divider()
 
-# --- SIDEBAR ---
-st.sidebar.header("➕ Add Locations")
-tab_man, tab_sea = st.sidebar.tabs(["✍️ Manual/Excel", "🔍 Search"])
+# --- SIDEBAR: CLEAN & COLLAPSIBLE ---
+st.sidebar.header("⚙️ Route Setup")
 
-with tab_man:
-    m_addr = st.text_input("Enter address:")
-    c1, c2, c3 = st.columns(3)
-    if c1.button("START", key="m1"):
+# Use expanders so they don't take up the whole screen
+with st.sidebar.expander("📍 Add Start & End Nodes", expanded=False):
+    m_addr = st.text_input("Address:")
+    if st.button("Set as START"):
         st.session_state.start_node = m_addr
         st.rerun()
-    if c2.button("STOP", key="m2"):
-        if m_addr and m_addr not in st.session_state.delivery_list:
-            st.session_state.delivery_list.append(m_addr)
-        st.rerun()
-    if c3.button("END", key="m3"):
+    if st.button("Set as END"):
         st.session_state.end_node = m_addr
         st.rerun()
 
-    st.divider()
-    up_file = st.file_uploader("Upload Excel", type=["xlsx"])
+with st.sidebar.expander("🔍 Search & Add Stops", expanded=False):
+    q = st.text_input("Search Place:")
+    if st.button("Find on Map"):
+        res = ArcGIS().geocode(f"{q}, North Carolina")
+        if res:
+            st.session_state.last_search = res.address
+            st.info(f"Found: {res.address}")
+    if 'last_search' in st.session_state:
+        if st.button("Add Result to List"):
+            st.session_state.delivery_list.append(st.session_state.last_search)
+            st.rerun()
+
+with st.sidebar.expander("📁 Excel Upload", expanded=False):
+    up_file = st.file_uploader("Drop .xlsx here", type=["xlsx"])
     if up_file:
         df = pd.read_excel(up_file)
         if 'Address' in df.columns:
             raw = df['Address'].dropna().astype(str).tolist()
             for a in raw:
-                if a.strip() and a.strip() not in st.session_state.delivery_list:
+                if a.strip() not in st.session_state.delivery_list:
                     st.session_state.delivery_list.append(a.strip())
-            st.sidebar.success("Excel Loaded!")
-
-with tab_sea:
-    with st.form("s_form"):
-        q = st.text_input("Search NC Map:")
-        s_sub = st.form_submit_button("Find")
-    if s_sub and q:
-        res = ArcGIS().geocode(f"{q}, North Carolina")
-        if res:
-            st.session_state.last_search = res.address
-            st.info(f"Found: {res.address}")
-    
-    if 'last_search' in st.session_state:
-        if st.sidebar.button("Add Search Result as STOP"):
-            st.session_state.delivery_list.append(st.session_state.last_search)
-            st.rerun()
-
-if st.sidebar.button("🗑️ Reset All Data", use_container_width=True):
-    st.session_state.clear()
-    st.rerun()
-
+            st.success("List Updated!")
 # --- MAIN UI ---
 col_left, col_right = st.columns([1, 1.2])
 
@@ -147,5 +134,6 @@ with col_right:
 
     m = folium.Map(location=[35.73, -78.85], zoom_start=11)
     st_folium(m, width=600, height=400)
+
 
 
