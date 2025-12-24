@@ -47,12 +47,6 @@ if 'start_node' not in st.session_state:
     st.session_state.start_node = ""
 if 'end_node' not in st.session_state:
     st.session_state.end_node = ""
-    # --- FEATURE TOGGLES ---
-if 'ENABLE_ACTION_CARDS' not in st.session_state:
-    st.session_state.ENABLE_ACTION_CARDS = True 
-
-if 'delivery_statuses' not in st.session_state:
-    st.session_state.delivery_statuses = {}
 
 # --- 3. PROGRESS DASHBOARD ---
 # This makes it look like a real delivery app
@@ -140,45 +134,22 @@ if st.sidebar.button("🗑️ Reset All Data", use_container_width=True):
 col_left, col_right = st.columns([1, 1.2])
 
 with col_left:
-    st.subheader("📋 Delivery Workflow")
+    st.subheader("📋 Delivery Checklist")
     
-    # Clean the list of any empty values
+    # Filter out empty entries
     st.session_state.delivery_list = [x for x in st.session_state.delivery_list if str(x).lower() != 'nan' and x]
     
-    if not st.session_state.delivery_list:
-        st.info("👋 Use the sidebar to add deliveries!")
+    if not st.session_state.delivery_list and not st.session_state.start_node:
+        st.info("👋 Welcome! Use the sidebar to add your first delivery address.")
     
+    # Display the checklist as clean cards
     for i, addr in enumerate(st.session_state.delivery_list):
-        # --- FEATURE: MODERN ACTION CARDS (Toggled) ---
-        if st.session_state.ENABLE_ACTION_CARDS:
-            # Cards for 'Pending' items are expanded; 'Completed' items are collapsed
-            is_done = addr in st.session_state.completed_stops
-            with st.expander(f"📍 {addr}", expanded=not is_done):
-                current_status = st.session_state.delivery_statuses.get(addr, "⏳ Pending")
-                st.caption(f"Status: {current_status}")
-                
-                # Action Buttons
-                c1, c2, c3 = st.columns(3)
-                if c1.button("✅ Handed", key=f"h_{i}"):
-                    st.session_state.completed_stops.add(addr)
-                    st.session_state.delivery_statuses[addr] = "✅ Handed to Resident"
-                    st.rerun()
-                if c2.button("📦 Porch", key=f"p_{i}"):
-                    st.session_state.completed_stops.add(addr)
-                    st.session_state.delivery_statuses[addr] = "📦 Left at Door"
-                    st.rerun()
-                if c3.button("❌ Issue", key=f"x_{i}"):
-                    # Note: We don't add to completed_stops so it stays on the 'Remaining' map
-                    st.session_state.delivery_statuses[addr] = "❌ Could Not Deliver"
-                    st.rerun()
-        
-        # --- STABLE FALLBACK (If feature is toggled OFF) ---
+        is_done = addr in st.session_state.completed_stops
+        # The key ensures Streamlit tracks each checkbox individually
+        if st.checkbox(f"{addr}", value=is_done, key=f"addr_{i}"):
+            st.session_state.completed_stops.add(addr)
         else:
-            is_done = addr in st.session_state.completed_stops
-            if st.checkbox(f"{addr}", value=is_done, key=f"legacy_{i}"):
-                st.session_state.completed_stops.add(addr)
-            else:
-                st.session_state.completed_stops.discard(addr)
+            st.session_state.completed_stops.discard(addr)
 
 with col_right:
     st.subheader("🗺️ Route Map")
@@ -211,8 +182,6 @@ if st.button("✨ Optimize My Remaining Route", use_container_width=True):
     # Simple sort for now; keeps the UX snappy
     st.session_state.delivery_list.sort()
     st.rerun()
-
-
 
 
 
