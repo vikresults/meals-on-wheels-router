@@ -5,7 +5,7 @@ from streamlit_folium import st_folium
 from geopy.geocoders import ArcGIS
 import urllib.parse
 from PIL import Image
-import pytesseract
+
 
 # 1. Page Config
 st.set_page_config(page_title="Meals on Wheels Master", layout="wide")
@@ -81,7 +81,7 @@ with tab_cam:
     if cam_img:
         img = Image.open(cam_img)
         try:
-            text = pytesseract.image_to_string(img)
+           # text = pytesseract.image_to_string(img)
             st.write(f"**Read Text:** {text}")
             if st.button("Add to List"):
                 st.session_state.delivery_list.append(text.strip())
@@ -137,4 +137,5 @@ with col_right:
         st.link_button("🚀 Launch GPS Navigation", url, use_container_width=True)
 
     m = folium.Map(location=[35.73, -78.85], zoom_start=11)
+
     st_folium(m, width=600, height=400)
