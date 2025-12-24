@@ -61,41 +61,75 @@ col_c.metric("Remaining", stops_remaining)
 
 st.divider()
 
-# --- SIDEBAR: CLEAN & COLLAPSIBLE ---
+# --- SIDEBAR: DUAL-INPUT UPGRADE ---
 st.sidebar.header("⚙️ Route Setup")
 
-# Use expanders so they don't take up the whole screen
-with st.sidebar.expander("📍 Add Start & End Nodes", expanded=False):
-    m_addr = st.text_input("Address:")
-    if st.button("Set as START"):
-        st.session_state.start_node = m_addr
-        st.rerun()
-    if st.button("Set as END"):
-        st.session_state.end_node = m_addr
-        st.rerun()
-
-with st.sidebar.expander("🔍 Search & Add Stops", expanded=False):
-    q = st.text_input("Search Place:")
-    if st.button("Find on Map"):
-        res = ArcGIS().geocode(f"{q}, North Carolina")
-        if res:
-            st.session_state.last_search = res.address
-            st.info(f"Found: {res.address}")
-    if 'last_search' in st.session_state:
-        if st.button("Add Result to List"):
-            st.session_state.delivery_list.append(st.session_state.last_search)
+# 1. START & END NODES
+with st.sidebar.expander("🚩 Set Start & End Points", expanded=False):
+    st.write("### Start Point")
+    s_tab1, s_tab2 = st.tabs(["✍️ Manual", "🔍 Search"])
+    with s_tab1:
+        if st.button("📍 Use My Current Location"):
+            st.session_state.start_node = "My Location"
             st.rerun()
+        m_start = st.text_input("Start Address:", key="m_start")
+        if st.button("Set Manual Start"):
+            st.session_state.start_node = m_start
+            st.rerun()
+    with s_tab2:
+        s_query = st.text_input("Search Start:", key="s_start")
+        if st.button("Find & Set Start"):
+            res = ArcGIS().geocode(f"{s_query}, North Carolina")
+            if res:
+                st.session_state.start_node = res.address
+                st.success(f"Set: {res.address}")
 
-with st.sidebar.expander("📁 Excel Upload", expanded=False):
-    up_file = st.file_uploader("Drop .xlsx here", type=["xlsx"])
-    if up_file:
-        df = pd.read_excel(up_file)
-        if 'Address' in df.columns:
-            raw = df['Address'].dropna().astype(str).tolist()
-            for a in raw:
-                if a.strip() not in st.session_state.delivery_list:
-                    st.session_state.delivery_list.append(a.strip())
-            st.success("List Updated!")
+    st.divider()
+    st.write("### End Point")
+    e_tab1, e_tab2 = st.tabs(["✍️ Manual", "🔍 Search"])
+    with e_tab1:
+        m_end = st.text_input("End Address:", key="m_end")
+        if st.button("Set Manual End"):
+            st.session_state.end_node = m_end
+            st.rerun()
+    with e_tab2:
+        e_query = st.text_input("Search End:", key="e_end")
+        if st.button("Find & Set End"):
+            res = ArcGIS().geocode(f"{e_query}, North Carolina")
+            if res:
+                st.session_state.end_node = res.address
+                st.success(f"Set: {res.address}")
+
+# 2. DELIVERY STOPS
+with st.sidebar.expander("📦 Add Delivery Stops", expanded=True):
+    d_tab1, d_tab2, d_tab3 = st.tabs(["✍️ Manual", "🔍 Search", "📁 Excel"])
+    with d_tab1:
+        m_stop = st.text_input("Enter Stop Address:", key="m_stop")
+        if st.button("➕ Add Manual Stop"):
+            if m_stop:
+                st.session_state.delivery_list.append(m_stop)
+                st.rerun()
+    with d_tab2:
+        d_query = st.text_input("Search Stop:", key="s_stop")
+        if st.button("🔍 Find & Add Stop"):
+            res = ArcGIS().geocode(f"{d_query}, North Carolina")
+            if res:
+                st.session_state.delivery_list.append(res.address)
+                st.success(f"Added: {res.address}")
+    with d_tab3:
+        up_file = st.file_uploader("Upload Excel", type=["xlsx"])
+        if up_file:
+            df = pd.read_excel(up_file)
+            if 'Address' in df.columns:
+                raw = df['Address'].dropna().astype(str).tolist()
+                for a in raw:
+                    if a.strip() not in st.session_state.delivery_list:
+                        st.session_state.delivery_list.append(a.strip())
+                st.success("Excel Stops Added!")
+
+if st.sidebar.button("🗑️ Reset All Data", use_container_width=True):
+    st.session_state.clear()
+    st.rerun()
 # --- 4. MAIN ACTION AREA ---
 col_left, col_right = st.columns([1, 1.2])
 
@@ -148,6 +182,7 @@ if st.button("✨ Optimize My Remaining Route", use_container_width=True):
     # Simple sort for now; keeps the UX snappy
     st.session_state.delivery_list.sort()
     st.rerun()
+
 
 
 
