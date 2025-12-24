@@ -38,6 +38,28 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 st.title("🚚 NC Elite Router")
+# --- 2. RESTORE MEMORY (The Brain) ---
+if 'delivery_list' not in st.session_state:
+    st.session_state.delivery_list = []
+if 'completed_stops' not in st.session_state:
+    st.session_state.completed_stops = set()
+if 'start_node' not in st.session_state:
+    st.session_state.start_node = ""
+if 'end_node' not in st.session_state:
+    st.session_state.end_node = ""
+
+# --- 3. PROGRESS DASHBOARD ---
+# This makes it look like a real delivery app
+stops_total = len(st.session_state.delivery_list)
+stops_done = len(st.session_state.completed_stops)
+stops_remaining = stops_total - stops_done
+
+col_a, col_b, col_c = st.columns(3)
+col_a.metric("Total Stops", stops_total)
+col_b.metric("Completed", stops_done)
+col_c.metric("Remaining", stops_remaining)
+
+st.divider()
 
 # --- SIDEBAR ---
 st.sidebar.header("➕ Add Locations")
@@ -125,4 +147,5 @@ with col_right:
 
     m = folium.Map(location=[35.73, -78.85], zoom_start=11)
     st_folium(m, width=600, height=400)
+
 
