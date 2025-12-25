@@ -1,193 +1,123 @@
 import streamlit as st
-import pandas as pd
 import folium
 from streamlit_folium import st_folium
 from geopy.geocoders import ArcGIS
-import urllib.parse
+from geopy.distance import geodesic
+import random
 
-# --- MOBILE FRIENDLY UI STYLING ---
-st.set_page_config(page_title="NC Route Master", layout="wide")
+# --- 1. CONFIG & STYLING ---
+# Note: st.set_page_config MUST be the very first Streamlit command
+st.set_page_config(page_title="Universal Router", layout="wide")
 
 st.markdown("""
     <style>
-    /* Make buttons big and thumb-friendly */
+    .stApp { background-color: #ffffff; color: #000000; }
     .stButton > button {
-        width: 100%;
-        border-radius: 10px;
-        height: 3em;
-        background-color: #007BFF;
-        color: white;
-        font-weight: bold;
-        border: none;
-        margin-bottom: 10px;
+        width: 100%; border-radius: 30px; height: 55px;
+        background-color: #000000; color: white; border: none;
+        font-size: 18px; font-weight: bold; transition: 0.3s;
     }
-    /* Style the checklist items */
-    .stCheckbox {
-        background-color: #f8f9fa;
-        padding: 12px;
-        border-radius: 10px;
-        border: 1px solid #e9ecef;
-        margin-bottom: 8px;
-    }
-    /* Main container padding for mobile */
-    .block-container {
-        padding-top: 2rem;
-        padding-bottom: 2rem;
-    }
-    
-    /* Set sidebar width */
-    section[data-testid="stSidebar"] {
-        width: 425px !important;
-    }
+    .stButton > button:hover { background-color: #276EF1; color: white; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🚚 NC Elite Router")
-# --- 2. RESTORE MEMORY (The Brain) ---
-if 'delivery_list' not in st.session_state:
-    st.session_state.delivery_list = []
-if 'completed_stops' not in st.session_state:
-    st.session_state.completed_stops = set()
-if 'start_node' not in st.session_state:
-    st.session_state.start_node = ""
-if 'end_node' not in st.session_state:
-    st.session_state.end_node = ""
+# --- 2. HELPER FUNCTIONS ---
+def search_address(query):
+    if not query or len(query) < 3:
+        return None
+    try:
+        geolocator = ArcGIS(user_agent="universal_router_v2")
+        return geolocator.geocode(query)
+    except Exception:
+        return None
 
-# --- 3. PROGRESS DASHBOARD ---
-# This makes it look like a real delivery app
-stops_total = len(st.session_state.delivery_list)
-stops_done = len(st.session_state.completed_stops)
-stops_remaining = stops_total - stops_done
+def get_green_impact(miles_saved):
+    kg_co2 = miles_saved * 0.404
+    if kg_co2 > 10:
+        reward = "🚀 You saved enough CO2 to binge-watch 3 seasons of a show in 4K!"
+    elif kg_co2 > 5:
+        reward = "☕ That's equivalent to making 150 cups of coffee guilt-free!"
+    else:
+        reward = "📱 You saved enough energy to charge your phone for a whole year!"
+    return kg_co2, reward
 
-col_a, col_b, col_c = st.columns(3)
-col_a.metric("Total Stops", stops_total)
-col_b.metric("Completed", stops_done)
-col_c.metric("Remaining", stops_remaining)
-
+# --- 3. NAVIGATION ---
+app_phase = st.radio(
+    "Select Mode",
+    ["📍 Plan Trip", "🚗 Active Drive", "📊 Impact Report"],
+    horizontal=True
+)
 st.divider()
 
-# --- SIDEBAR: DUAL-INPUT UPGRADE ---
-st.sidebar.header("⚙️ Route Setup")
+# --- 4. APP PHASES ---
 
-# 1. START & END NODES
-with st.sidebar.expander("🚩 Set Start & End Points", expanded=False):
-    st.write("### Start Point")
-    s_tab1, s_tab2 = st.tabs(["✍️ Manual", "🔍 Search"])
-    with s_tab1:
-        if st.button("📍 Use My Current Location"):
-            st.session_state.start_node = "My Location"
-            st.rerun()
-        m_start = st.text_input("Start Address:", key="m_start")
-        if st.button("Set Manual Start"):
-            st.session_state.start_node = m_start
-            st.rerun()
-    with s_tab2:
-        s_query = st.text_input("Search Start:", key="s_start")
-        if st.button("Find & Set Start"):
-            res = ArcGIS().geocode(f"{s_query}, North Carolina")
-            if res:
-                st.session_state.start_node = res.address
-                st.success(f"Set: {res.address}")
-
-    st.divider()
-    st.write("### End Point")
-    e_tab1, e_tab2 = st.tabs(["✍️ Manual", "🔍 Search"])
-    with e_tab1:
-        m_end = st.text_input("End Address:", key="m_end")
-        if st.button("Set Manual End"):
-            st.session_state.end_node = m_end
-            st.rerun()
-    with e_tab2:
-        e_query = st.text_input("Search End:", key="e_end")
-        if st.button("Find & Set End"):
-            res = ArcGIS().geocode(f"{e_query}, North Carolina")
-            if res:
-                st.session_state.end_node = res.address
-                st.success(f"Set: {res.address}")
-
-# 2. DELIVERY STOPS
-with st.sidebar.expander("📦 Add Delivery Stops", expanded=True):
-    d_tab1, d_tab2, d_tab3 = st.tabs(["✍️ Manual", "🔍 Search", "📁 Excel"])
-    with d_tab1:
-        m_stop = st.text_input("Enter Stop Address:", key="m_stop")
-        if st.button("➕ Add Manual Stop"):
-            if m_stop:
-                st.session_state.delivery_list.append(m_stop)
-                st.rerun()
-    with d_tab2:
-        d_query = st.text_input("Search Stop:", key="s_stop")
-        if st.button("🔍 Find & Add Stop"):
-            res = ArcGIS().geocode(f"{d_query}, North Carolina")
-            if res:
-                st.session_state.delivery_list.append(res.address)
-                st.success(f"Added: {res.address}")
-    with d_tab3:
-        up_file = st.file_uploader("Upload Excel", type=["xlsx"])
-        if up_file:
-            df = pd.read_excel(up_file)
-            if 'Address' in df.columns:
-                raw = df['Address'].dropna().astype(str).tolist()
-                for a in raw:
-                    if a.strip() not in st.session_state.delivery_list:
-                        st.session_state.delivery_list.append(a.strip())
-                st.success("Excel Stops Added!")
-
-if st.sidebar.button("🗑️ Reset All Data", use_container_width=True):
-    st.session_state.clear()
-    st.rerun()
-# --- 4. MAIN ACTION AREA ---
-col_left, col_right = st.columns([1, 1.2])
-
-with col_left:
-    st.subheader("📋 Delivery Checklist")
+# PHASE 1: PLANNING
+if app_phase == "📍 Plan Trip":
+    st.info("Search for a destination to see your Green Savings.")
+    col1, col2 = st.columns(2)
     
-    # Filter out empty entries
-    st.session_state.delivery_list = [x for x in st.session_state.delivery_list if str(x).lower() != 'nan' and x]
-    
-    if not st.session_state.delivery_list and not st.session_state.start_node:
-        st.info("👋 Welcome! Use the sidebar to add your first delivery address.")
-    
-    # Display the checklist as clean cards
-    for i, addr in enumerate(st.session_state.delivery_list):
-        is_done = addr in st.session_state.completed_stops
-        # The key ensures Streamlit tracks each checkbox individually
-        if st.checkbox(f"{addr}", value=is_done, key=f"addr_{i}"):
-            st.session_state.completed_stops.add(addr)
-        else:
-            st.session_state.completed_stops.discard(addr)
+    with col1:
+        start_q = st.text_input("Start Location", placeholder="e.g. London, UK", key="start")
+    with col2:
+        end_q = st.text_input("Destination", placeholder="e.g. Paris, France", key="end")
 
-with col_right:
-    st.subheader("🗺️ Route Map")
-    
-    # BIG GOOGLE MAPS BUTTON
-    if st.session_state.start_node and st.session_state.delivery_list:
-        # Prepare the URL for Google Maps multi-stop
-        base_url = "https://www.google.com/maps/dir/"
-        start_pt = "Current+Location" if st.session_state.start_node == "My Location" else urllib.parse.quote(st.session_state.start_node)
-        
-        # Only route the stops NOT yet completed
-        remaining_stops = [urllib.parse.quote(str(a)) for a in st.session_state.delivery_list if a not in st.session_state.completed_stops]
-        
-        dest_pt = ""
-        if st.session_state.end_node:
-            dest_pt = urllib.parse.quote(st.session_state.end_node)
-        elif remaining_stops:
-            dest_pt = remaining_stops.pop() # Use the last stop as destination
+    if st.button("🗺️ Generate Global Route"):
+        if start_q and end_q:
+            with st.spinner("Searching global databases..."):
+                start_res = search_address(start_q)
+                end_res = search_address(end_q)
             
-        full_url = f"{base_url}{start_pt}/{'/'.join(remaining_stops)}/{dest_pt}"
+            if start_res and end_res:
+                st.session_state.start_node = start_res.address
+                st.session_state.end_node = end_res.address
+                
+                start_coords = (start_res.latitude, start_res.longitude)
+                end_coords = (end_res.latitude, end_res.longitude)
+                dist = geodesic(start_coords, end_coords).miles
+                st.session_state.current_miles = dist
+                
+                st.balloons()
+                st.success(f"Route Found: {dist:.1f} miles")
+                
+                # Map logic
+                avg_lat = (start_res.latitude + end_res.latitude) / 2
+                avg_lon = (start_res.longitude + end_res.longitude) / 2
+                m = folium.Map(location=[avg_lat, avg_lon], zoom_start=4)
+                folium.Marker(start_coords, popup="Start", icon=folium.Icon(color='blue')).add_to(m)
+                folium.Marker(end_coords, popup="End", icon=folium.Icon(color='green')).add_to(m)
+                st_folium(m, width="100%", height=450)
+                
+                kg, reward = get_green_impact(dist)
+                st.info(reward)
+            else:
+                st.error("📍 Location Not Found. Try adding a city/country name.")
+        else:
+            st.warning("Please enter both locations.")
+
+# PHASE 2: ACTIVE DRIVE
+elif app_phase == "🚗 Active Drive":
+    st.subheader("Navigation Center")
+    if 'start_node' in st.session_state:
+        st.write(f"**From:** {st.session_state.start_node}")
+        st.write(f"**To:** {st.session_state.end_node}")
         
-        st.link_button("🚀 START GPS NAVIGATION", full_url, type="primary", use_container_width=True)
-    
-    # Visual Map Preview
-    m = folium.Map(location=[35.73, -78.85], zoom_start=10, control_scale=True)
-    # (Optional: In the future, we can add markers here)
-    st_folium(m, width="100%", height=400, returned_objects=[])
+        # Proper Google Maps URL
+        encoded_start = st.session_state.start_node.replace(" ", "+")
+        encoded_end = st.session_state.end_node.replace(" ", "+")
+        google_url = f"https://www.google.com/maps/dir/?api=1&origin={encoded_start}&destination={encoded_end}"
+        st.link_button("🚀 OPEN GPS NAVIGATION", google_url, type="primary")
+    else:
+        st.warning("Please plan a trip first!")
 
-if st.button("✨ Optimize My Remaining Route", use_container_width=True):
-    # Simple sort for now; keeps the UX snappy
-    st.session_state.delivery_list.sort()
-    st.rerun()
+# PHASE 3: IMPACT REPORT
+elif app_phase == "📊 Impact Report":
+    st.subheader("Your Green Scorecard")
+    if 'current_miles' in st.session_state:
+        kg_saved, reward = get_green_impact(st.session_state.current_miles)
+        st.metric("CO2 Avoided", f"{kg_saved:.2f} kg")
+        st.info(reward)
+        st.success("You are in the top 5% of sustainable drivers this week! 🏆")
+    else:
+        st.write("No data available yet. Start driving to save carbon!")
 
-
-
-
+st.caption("Global Logistics | Sustainable Routing | 2025")
